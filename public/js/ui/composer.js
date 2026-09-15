@@ -35,12 +35,20 @@ export function initComposer() {
     const text = input.value.trim();
     if (!text || getState().streaming) return;
 
-    const fileIds = getState().attachments.map((f) => f.id);
+    const pendingFiles = getState().attachments;
+    const fileIds = pendingFiles.map((f) => f.id);
     input.value = '';
     autoGrow();
     clearAttachments();
 
-    await sendMessage(text, fileIds);
+    const sent = await sendMessage(text, fileIds);
+    // Server rad etsa (limit va h.k.) — yozilgan matn va fayllar yo'qolmasin
+    if (!sent && !input.value) {
+      input.value = text;
+      set({ attachments: pendingFiles });
+      renderAttachments();
+      autoGrow();
+    }
     input.focus();
   });
 

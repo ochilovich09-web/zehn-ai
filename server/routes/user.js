@@ -7,6 +7,7 @@ import { requireAuth, clearRefreshCookie } from '../lib/auth.js';
 import { hashPassword, verifyPassword } from '../lib/crypto.js';
 import { v } from '../lib/validate.js';
 import { config } from '../config.js';
+import { getQuota } from '../services/quota.js';
 
 export const userRoutes = new Router('/api/user');
 
@@ -105,6 +106,11 @@ userRoutes.post('/delete-account', requireAuth, async (ctx) => {
   await Users.remove(ctx.user.id);
   clearRefreshCookie(ctx.res);
   ok(ctx.res, { message: 'Akkaunt o‘chirildi' });
+});
+
+/* ── Joriy tarif va limit ───────────────────────────────────────────── */
+userRoutes.get('/usage', requireAuth, async (ctx) => {
+  ok(ctx.res, { quota: await getQuota(ctx.user) });
 });
 
 /* ── Faoliyat tarixi ────────────────────────────────────────────────── */

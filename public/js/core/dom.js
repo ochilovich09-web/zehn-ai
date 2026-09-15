@@ -112,9 +112,46 @@ export function formatTime(ts, lang = 'uz') {
   return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
-export function formatDate(ts, lang = 'uz') {
-  const locale = { uz: 'uz-UZ', ru: 'ru-RU', en: 'en-US' }[lang] || 'uz-UZ';
-  return new Date(ts).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+/*
+ * Brauzerlarning Intl kutubxonasida o'zbek tili ma'lumoti to'liq emas
+ * ("2026 M09 15", "-4 h" kabi chiqadi), shuning uchun o'zbekcha format qo'lda yoziladi.
+ */
+const UZ_MONTHS = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
+
+export function formatDate(ts, lang = 'uz', { year = true, utc = false } = {}) {
+  const d = new Date(ts);
+  if (lang === 'uz') {
+    const day = utc ? d.getUTCDate() : d.getDate();
+    const month = UZ_MONTHS[utc ? d.getUTCMonth() : d.getMonth()];
+    const y = utc ? d.getUTCFullYear() : d.getFullYear();
+    return year ? `${day}-${month}, ${y}` : `${day}-${month}`;
+  }
+  const locale = { ru: 'ru-RU', en: 'en-US' }[lang] || 'en-US';
+  return d.toLocaleDateString(locale, {
+    day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), ...(utc ? { timeZone: 'UTC' } : {}),
+  });
+}
+
+/** "5 daqiqa oldin" / "3 soatdan keyin" / "hozirgina". */
+export function formatRelative(ts, lang = 'uz') {
+  const diffSec = Math.round((ts - Date.now()) / 1000);
+  const abs = Math.abs(diffSec);
+  const future = diffSec > 0;
+
+  const units = [[60, 'second', 1], [3600, 'minute', 60], [86400, 'hour', 3600], [86400 * 30, 'day', 86400]];
+  const found = units.find(([limit]) => abs < limit);
+  if (!found) return formatDate(ts, lang);
+  const [, unit, size] = found;
+  const n = Math.max(1, Math.round(abs / size));
+
+  if (lang === 'uz') {
+    if (unit === 'second') return 'hozirgina';
+    const word = { minute: 'daqiqa', hour: 'soat', day: 'kun' }[unit];
+    return future ? `${n} ${word}dan keyin` : `${n} ${word} oldin`;
+  }
+  const locale = { ru: 'ru-RU', en: 'en-US' }[lang] || 'en-US';
+  if (unit === 'second') return lang === 'ru' ? 'только что' : 'just now';
+  return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(future ? n : -n, unit);
 }
 
 export const formatBytes = (n) => {

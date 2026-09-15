@@ -185,11 +185,28 @@ export const config = {
     '/api/auth': [30, 60_000],
     '/api/chat': [90, 60_000],
     '/api/files': [40, 60_000],
+    '/api/admin': [120, 60_000],
     default: [300, 60_000],
   },
 
   languages: ['uz', 'ru', 'en'],
   defaultLanguage: 'uz',
+
+  /** Admin panelga kirish huquqi. Masalan: ADMIN_EMAILS=ali@mail.uz,vali@mail.uz */
+  adminEmails: (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+
+  /**
+   * Tariflar: so'nggi 24 soatdagi AI so'rovlari limiti. 0 = cheklovsiz.
+   * Adminlar limitdan ozod.
+   */
+  tiers: {
+    free: { dailyRequests: int(process.env.TIER_FREE_DAILY, 30) },
+    pro: { dailyRequests: int(process.env.TIER_PRO_DAILY, 300) },
+    premium: { dailyRequests: int(process.env.TIER_PREMIUM_DAILY, 0) },
+  },
 };
 
 fs.mkdirSync(config.uploads.dir, { recursive: true });

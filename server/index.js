@@ -11,12 +11,13 @@ import { authRoutes } from './routes/auth.js';
 import { chatRoutes } from './routes/chat.js';
 import { fileRoutes } from './routes/files.js';
 import { userRoutes } from './routes/user.js';
+import { adminRoutes } from './routes/admin.js';
 
 const PUBLIC_DIR = path.join(ROOT, 'public');
 
 /* ── Router ─────────────────────────────────────────────────────────── */
 const api = new Router();
-api.use(authRoutes).use(chatRoutes).use(fileRoutes).use(userRoutes);
+api.use(authRoutes).use(chatRoutes).use(fileRoutes).use(userRoutes).use(adminRoutes);
 
 api.get('/api/health', (ctx) => ok(ctx.res, {
   status: 'up',

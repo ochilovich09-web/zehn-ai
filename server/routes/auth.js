@@ -2,7 +2,7 @@ import { Router } from '../lib/router.js';
 import { ok, readJson, conflict, unauthorized, badRequest, notFound } from '../lib/http.js';
 import { Users, Sessions, Audit } from '../lib/db.js';
 import { hashPassword, verifyPassword, randomToken, sha256, signJwt } from '../lib/crypto.js';
-import { issueTokens, requireAuth, parseCookies, setRefreshCookie, clearRefreshCookie, REFRESH_COOKIE } from '../lib/auth.js';
+import { issueTokens, requireAuth, blockedError, parseCookies, setRefreshCookie, clearRefreshCookie, REFRESH_COOKIE } from '../lib/auth.js';
 import { loginGuard } from '../lib/ratelimit.js';
 import { v } from '../lib/validate.js';
 import { config } from '../config.js';
@@ -68,6 +68,11 @@ authRoutes.post('/login', async (ctx) => {
   }
 
   loginGuard.reset(email);
+  // Bloklash holati parol to'g'ri bo'lgandagina oshkor qilinadi
+  if (user.status === 'blocked') {
+    await Audit.add(user.id, 'login_blocked', '', ctx.ip);
+    throw blockedError(user);
+  }
   const tokens = await issueTokens(user, ctx);
   setRefreshCookie(ctx.res, tokens.refreshToken);
   await Audit.add(user.id, 'login', '', ctx.ip);
@@ -89,6 +94,11 @@ authRoutes.post('/refresh', async (ctx) => {
 
   const user = await Users.byId(session.user_id);
   if (!user) throw unauthorized('Foydalanuvchi topilmadi');
+  if (user.status === 'blocked') {
+    await Sessions.revoke(session.id, user.id);
+    clearRefreshCookie(ctx.res);
+    throw blockedError(user);
+  }
 
   // Refresh token rotatsiyasi — o'g'irlangan token qayta ishlatilmasin
   const fresh = randomToken(48);

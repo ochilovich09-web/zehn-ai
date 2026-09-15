@@ -38,7 +38,13 @@ async function refreshToken() {
   if (!refreshPromise) {
     refreshPromise = fetch('/api/auth/refresh', { method: 'POST', credentials: 'same-origin' })
       .then(async (res) => {
-        if (!res.ok) throw new ApiError('Session expired', 'UNAUTHORIZED', 401);
+        if (!res.ok) {
+          let error = {};
+          try { error = (await res.json()).error || {}; } catch { /* JSON emas */ }
+          const apiError = new ApiError(error.message || 'Session expired', error.code || 'UNAUTHORIZED', res.status, error.details);
+          notifyBlocked(apiError);
+          throw apiError;
+        }
         const data = await res.json();
         setToken(data.accessToken);
         return data;
@@ -64,12 +70,14 @@ async function request(path, { method = 'GET', body, raw = false, retry = true }
   if (res.status === 401 && retry && accessToken) {
     try {
       await refreshToken();
-      return request(path, { method, body, raw, retry: false });
-    } catch {
+    } catch (err) {
       setToken(null);
+      // Bloklangan hisob uchun alohida xabar allaqachon ko'rsatilgan
+      if (err.code === 'ACCOUNT_BLOCKED') throw err;
       for (const fn of authListeners) fn();
       throw new ApiError('SESSION_EXPIRED', 'UNAUTHORIZED', 401);
     }
+    return request(path, { method, body, raw, retry: false });
   }
 
   const type = res.headers.get('content-type') || '';
@@ -81,9 +89,21 @@ async function request(path, { method = 'GET', body, raw = false, retry = true }
   const data = await res.json();
   if (!res.ok || data.ok === false) {
     const err = data.error || {};
-    throw new ApiError(err.message || 'Xatolik', err.code || 'ERROR', res.status, err.details);
+    const apiError = new ApiError(err.message || 'Xatolik', err.code || 'ERROR', res.status, err.details);
+    notifyBlocked(apiError);
+    throw apiError;
   }
   return data;
+}
+
+/* Hisob bloklansa — ilova qayerda bo'lishidan qat'i nazar foydalanuvchi chiqariladi */
+const blockedListeners = new Set();
+export const onAccountBlocked = (fn) => { blockedListeners.add(fn); return () => blockedListeners.delete(fn); };
+
+function notifyBlocked(err) {
+  if (err.code !== 'ACCOUNT_BLOCKED') return;
+  setToken(null);
+  for (const fn of blockedListeners) fn(err);
 }
 
 export const api = {
@@ -127,6 +147,15 @@ export const api = {
     request('/api/user/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
   deleteAccount: (password) => request('/api/user/delete-account', { method: 'POST', body: { password } }),
 
+  usage: () => request('/api/user/usage'),
+
+  /* ── Admin ── */
+  adminStats: () => request('/api/admin/stats'),
+  adminUsers: (params) => request(`/api/admin/users?${params.toString()}`),
+  adminUser: (id) => request(`/api/admin/users/${encodeURIComponent(id)}`),
+  adminUpdateUser: (id, patch) => request(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch }),
+  adminRevokeSessions: (id) => request(`/api/admin/users/${encodeURIComponent(id)}/revoke-sessions`, { method: 'POST' }),
+
   /* ── Konfiguratsiya ── */
   config: () => request('/api/config'),
 };
@@ -161,9 +190,11 @@ export async function streamRequest(path, body, onEvent, signal) {
   }
 
   if (!res.ok) {
-    let message = 'Xatolik';
-    try { message = (await res.json()).error?.message || message; } catch { /* JSON emas */ }
-    throw new ApiError(message, 'STREAM_ERROR', res.status);
+    let error = {};
+    try { error = (await res.json()).error || {}; } catch { /* JSON emas */ }
+    const apiError = new ApiError(error.message || 'Xatolik', error.code || 'STREAM_ERROR', res.status, error.details);
+    notifyBlocked(apiError);
+    throw apiError;
   }
   if (!res.body) throw new ApiError('Oqim qo‘llab-quvvatlanmaydi', 'NO_STREAM', 0);
 

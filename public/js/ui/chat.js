@@ -7,6 +7,7 @@ import { renderMarkdown } from './markdown.js';
 import { toast, confirmDialog } from './toast.js';
 import { speak, stopSpeaking, isSpeaking } from './voice.js';
 import { loadChats } from './sidebar.js';
+import { refreshQuota } from './settings.js';
 
 const STAGES = ['context_analysis', 'problem_detection', 'reasoning', 'solution'];
 let abortController = null;
@@ -257,10 +258,12 @@ export async function sendMessage(text, fileIds = []) {
   let answer = '';
   let finalMessage = null;
   let titleChanged = false;
+  let accepted = false;          // server xabarni qabul qildimi (user_message keldimi)
 
   try {
     await streamRequest(`/api/chat/chats/${chatId}/messages`, { content: text, fileIds }, (event, data) => {
       if (event === 'user_message') {
+        accepted = true;
         box.insertBefore(userMessage(data.message), placeholder.node);
         renderIcons(box);
         set({ messages: [...getState().messages, data.message] });
@@ -289,7 +292,7 @@ export async function sendMessage(text, fileIds = []) {
       if (event === 'error') toast(data.message || t('error.generic'), 'error');
     }, abortController.signal);
   } catch (err) {
-    if (err.name !== 'AbortError') toast(err.message || t('error.network'), 'error');
+    if (err.name !== 'AbortError') showRequestError(err);
   } finally {
     set({ streaming: false });
     toggleSendUI(false);
@@ -297,6 +300,15 @@ export async function sendMessage(text, fileIds = []) {
   }
 
   placeholder.node.remove();
+
+  // Server xabarni umuman qabul qilmagan bo'lsa (limit, blok, tarmoq) — soxta javob chiqarmaymiz
+  if (!accepted) {
+    if (createdNew) loadChats();
+    if (!getState().messages.length) $('#welcome').hidden = false;
+    return null;
+  }
+
+  refreshQuota();
 
   const message = finalMessage || {
     id: `local_${Date.now()}`,
@@ -348,16 +360,19 @@ export async function regenerate() {
   abortController = new AbortController();
   let answer = '';
   let finalMessage = null;
+  let accepted = false;
+  const chatId = state.activeChatId;
 
   try {
-    await streamRequest(`/api/chat/chats/${state.activeChatId}/regenerate`, {}, (event, data) => {
+    await streamRequest(`/api/chat/chats/${chatId}/regenerate`, {}, (event, data) => {
+      accepted = true;
       if (event === 'stage') placeholder.setStage(data.stage);
       if (event === 'analysis') placeholder.setAnalysis(data);
       if (event === 'delta') { answer += data.text; placeholder.appendText(answer); }
       if (event === 'done') finalMessage = data.message;
     }, abortController.signal);
   } catch (err) {
-    if (err.name !== 'AbortError') toast(err.message, 'error');
+    if (err.name !== 'AbortError') showRequestError(err);
   } finally {
     set({ streaming: false });
     toggleSendUI(false);
@@ -365,11 +380,31 @@ export async function regenerate() {
   }
 
   placeholder.node.remove();
+
+  // Server rad etgan bo'lsa (masalan limit) — eski javob serverda saqlangan, uni qayta ko'rsatamiz
+  if (!accepted) {
+    if (getState().activeChatId === chatId) await openChat(chatId);
+    return;
+  }
+
+  refreshQuota();
   const message = finalMessage || { id: `local_${Date.now()}`, role: 'assistant', content: answer, createdAt: Date.now(), meta: null };
   set({ messages: [...getState().messages, message] });
   box.append(messageNode(message));
   renderIcons(box);
   scrollToBottom();
+}
+
+/** So'rov xatosini foydalanuvchiga tushunarli ko'rinishda ko'rsatadi. */
+function showRequestError(err) {
+  if (err.code === 'TIER_LIMIT') {
+    toast(t('limit.reached', { limit: err.details?.limit ?? '' }), 'warn', 9000);
+    refreshQuota();
+    return;
+  }
+  // Bloklash xabarini main.js ko'rsatadi
+  if (err.code === 'ACCOUNT_BLOCKED') return;
+  toast(err.message || t('error.network'), 'error');
 }
 
 export function stopStreaming() {

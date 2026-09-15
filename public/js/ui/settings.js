@@ -373,10 +373,40 @@ export function initials(name) {
   return String(name || '?').trim().charAt(0).toUpperCase();
 }
 
+/** Sidebar profilidagi tarif va qolgan so'rovlar soni. */
+let lastQuota = null;
+
+export async function refreshQuota() {
+  if (!getState().user) return;
+  try {
+    const { quota } = await api.usage();
+    lastQuota = quota;
+    renderQuota();
+  } catch { /* keyingi so'rovda yangilanadi */ }
+}
+
+function renderQuota() {
+  const node = $('#side-plan');
+  const q = lastQuota;
+  if (!node || !q) return;
+  const tier = t(`tier.${q.tier}`);
+  node.classList.remove('is-low', 'is-out');
+  if (q.unlimited) {
+    node.textContent = t('quota.unlimited', { tier });
+  } else if (q.remaining === 0) {
+    node.textContent = t('quota.out', { tier });
+    node.classList.add('is-out');
+  } else {
+    node.textContent = t('quota.left', { tier, n: q.remaining });
+    if (q.remaining / q.limit <= 0.2) node.classList.add('is-low');
+  }
+}
+
 export function refreshSidebarProfile() {
   const { user } = getState();
   if (!user) return;
   $('#side-name').textContent = user.fullName;
+  renderQuota();
 
   for (const node of [$('#side-avatar'), $('#btn-avatar')]) {
     if (!node) continue;

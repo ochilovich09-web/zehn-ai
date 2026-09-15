@@ -8,6 +8,7 @@ import { v, sanitizeText } from '../lib/validate.js';
 import { config } from '../config.js';
 import { runPipeline, makeTitle } from '../services/ai/engine.js';
 import { detectPromptInjection } from '../services/security/scan.js';
+import { assertQuota, recordUsage } from '../services/quota.js';
 import { log } from '../lib/logger.js';
 
 export const chatRoutes = new Router('/api/chat');
@@ -98,6 +99,9 @@ chatRoutes.post('/chats/:id/messages', requireAuth, async (ctx) => {
   const content = sanitizeText(rawContent);
   const fileIds = Array.isArray(body.fileIds) ? body.fileIds.slice(0, config.uploads.maxPerMessage) : [];
 
+  // Limit xabar saqlanishidan va SSE ochilishidan oldin tekshiriladi — klient oddiy JSON xato oladi
+  await assertQuota(ctx.user);
+
   // Biriktirilgan fayllarni yuklaymiz (faqat shu foydalanuvchiniki)
   const attachments = [];
   for (const id of fileIds) {
@@ -149,6 +153,10 @@ chatRoutes.post('/chats/:id/messages', requireAuth, async (ctx) => {
     return;
   }
 
+  // Provayder tokenlari sarflangan — klient uzilgan bo'lsa ham hisobga olinadi
+  await recordUsage({ user: ctx.user, chatId: chat.id, kind: 'message', meta: result.meta })
+    .catch((err) => log.warn('Usage yozilmadi:', err.message));
+
   if (controller.signal.aborted && !result.text.trim()) {
     stream.end();
     return;
@@ -179,6 +187,8 @@ chatRoutes.post('/chats/:id/regenerate', requireAuth, async (ctx) => {
   const lastUser = [...all].reverse().find((m) => m.role === 'user');
   if (!lastUser) throw badRequest('Qayta generatsiya uchun savol topilmadi');
 
+  await assertQuota(ctx.user);
+
   // Oxirgi AI javobini olib tashlaymiz
   const lastAi = [...all].reverse().find((m) => m.role === 'assistant');
   if (lastAi && lastAi.createdAt > lastUser.createdAt) await Messages.remove(lastAi.id);
@@ -206,6 +216,9 @@ chatRoutes.post('/chats/:id/regenerate', requireAuth, async (ctx) => {
     signal: controller.signal,
     send: (event, data) => stream.send(event, data),
   });
+
+  await recordUsage({ user: ctx.user, chatId: chat.id, kind: 'regenerate', meta: result.meta })
+    .catch((err) => log.warn('Usage yozilmadi:', err.message));
 
   const aiMessage = await Messages.add({
     chatId: chat.id, userId: ctx.user.id, role: 'assistant',

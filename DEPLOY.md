@@ -93,6 +93,10 @@ Service → **Variables** bo'limiga qo'shing:
 | `GEMINI_API_KEY` | Gemini kalitingiz |
 | `AI_PROVIDER` | `gemini` |
 | `AI_MODEL` | `gemini-3.5-flash` |
+| `ADMIN_EMAILS` | Admin panelga kiradigan email(lar), vergul bilan |
+| `TIER_FREE_DAILY` | Free tarif: 24 soatdagi so'rovlar (standart `30`) |
+| `TIER_PRO_DAILY` | Pro tarif (standart `300`) |
+| `TIER_PREMIUM_DAILY` | Premium tarif (standart `0` = cheklovsiz) |
 
 > ⚠️ Haqiqiy qiymatlarni **faqat Railway Variables** ga yozing — bu faylga emas.
 > `DEPLOY.md` repoga tushadi va repo ochiq.

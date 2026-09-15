@@ -203,7 +203,46 @@ const SCHEMA = [
     ip         TEXT,
     created_at INTEGER NOT NULL
   )`,
+  // Har bir AI so'rovi (xabar yoki qayta generatsiya) — limit va statistika uchun
+  `CREATE TABLE IF NOT EXISTS usage_events (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    chat_id    TEXT,
+    kind       TEXT NOT NULL,
+    provider   TEXT,
+    model      TEXT,
+    tokens_in  INTEGER NOT NULL DEFAULT 0,
+    tokens_out INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_usage_user ON usage_events(user_id, created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_usage_time ON usage_events(created_at)',
 ];
+
+/**
+ * Mavjud bazaga keyinroq qo'shilgan ustunlar.
+ * SQLite'da "ADD COLUMN IF NOT EXISTS" yo'q, shuning uchun avval tekshiramiz.
+ */
+const COLUMN_MIGRATIONS = {
+  users: [
+    ['role', "TEXT NOT NULL DEFAULT 'user'"],
+    ['tier', "TEXT NOT NULL DEFAULT 'free'"],
+    ['status', "TEXT NOT NULL DEFAULT 'active'"],
+    ['block_reason', 'TEXT'],
+    ['blocked_at', 'INTEGER'],
+    ['last_seen_at', 'INTEGER'],
+  ],
+};
+
+async function migrateColumns() {
+  for (const [table, columns] of Object.entries(COLUMN_MIGRATIONS)) {
+    const existing = new Set((await driver.all(`PRAGMA table_info(${table})`)).map((c) => c.name));
+    const missing = columns.filter(([name]) => !existing.has(name));
+    if (!missing.length) continue;
+    await driver.batch(missing.map(([name, def]) => ({ sql: `ALTER TABLE ${table} ADD COLUMN ${name} ${def}` })));
+    log.info(`Migratsiya: ${table} jadvaliga ${missing.map(([n]) => n).join(', ')} qo‘shildi`);
+  }
+}
 
 const driver = config.db.url
   ? createTursoDriver(config.db.url, config.db.authToken)
@@ -211,9 +250,27 @@ const driver = config.db.url
 
 try {
   await driver.batch(SCHEMA.map((sql) => ({ sql })));
+  await migrateColumns();
+  // Status/tier bo'yicha filtrlash uchun indeks (ustunlar migratsiyadan keyin mavjud)
+  await driver.run('CREATE INDEX IF NOT EXISTS idx_users_status ON users(status, tier)');
+  await syncAdmins();
 } catch (err) {
   log.error('Bazani ishga tushirib bo‘lmadi:', err.message);
   process.exit(1);
+}
+
+/** ADMIN_EMAILS dagi hisoblarga admin rolini beradi, ro'yxatdan chiqarilganlarni oddiy foydalanuvchiga qaytaradi. */
+async function syncAdmins() {
+  const emails = config.adminEmails;
+  if (emails.length) {
+    const marks = emails.map(() => '?').join(',');
+    await driver.batch([
+      { sql: `UPDATE users SET role = 'admin' WHERE email IN (${marks})`, args: emails },
+      { sql: `UPDATE users SET role = 'user' WHERE role = 'admin' AND email NOT IN (${marks})`, args: emails },
+    ]);
+  } else {
+    await driver.run("UPDATE users SET role = 'user' WHERE role = 'admin'");
+  }
 }
 
 log.ok(`Database ready: ${driver.kind === 'turso' ? config.db.url : config.db.file}`);
@@ -226,20 +283,26 @@ const parseMeta = (m) => { try { return m ? JSON.parse(m) : null; } catch { retu
 /* ═══ Repozitoriylar ═══════════════════════════════════════════════════ */
 
 /* ── Users ── */
+// "role" bu yerda yo'q: rol faqat ADMIN_EMAILS orqali boshqariladi (syncAdmins)
 const USER_FIELDS = ['full_name', 'avatar', 'language', 'theme', 'notifications', 'password_hash',
-  'email_verified', 'verify_token', 'reset_token', 'reset_expires'];
+  'email_verified', 'verify_token', 'reset_token', 'reset_expires',
+  'tier', 'status', 'block_reason', 'blocked_at'];
 
 export const Users = {
   async create({ fullName, email, passwordHash, language = 'uz', verifyToken = null }) {
     const id = uid('usr');
     const t = now();
+    const normalized = String(email).toLowerCase();
+    const role = config.adminEmails.includes(normalized) ? 'admin' : 'user';
     await driver.run(
-      `INSERT INTO users (id, full_name, email, password_hash, language, verify_token, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?)`,
-      [id, fullName, String(email).toLowerCase(), passwordHash, language, verifyToken, t, t]
+      `INSERT INTO users (id, full_name, email, password_hash, language, verify_token, role, created_at, updated_at, last_seen_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [id, fullName, normalized, passwordHash, language, verifyToken, role, t, t, t]
     );
     return this.byId(id);
   },
+  /** Oxirgi faollik vaqti (chaqiruvchi tomonda throttling qilinadi). */
+  touchSeen: (id) => driver.run('UPDATE users SET last_seen_at = ? WHERE id = ?', [now(), id]),
   byId: (id) => driver.get('SELECT * FROM users WHERE id = ?', [id]),
   byEmail: (email) => driver.get('SELECT * FROM users WHERE email = ?', [String(email).toLowerCase()]),
   byVerifyToken: (t) => driver.get('SELECT * FROM users WHERE verify_token = ?', [t]),
@@ -257,6 +320,7 @@ export const Users = {
   /** Foydalanuvchi va unga tegishli barcha yozuvlarni bitta tranzaksiyada o'chiradi. */
   async remove(id) {
     await driver.batch([
+      { sql: 'DELETE FROM usage_events WHERE user_id = ?', args: [id] },
       { sql: 'DELETE FROM messages WHERE user_id = ?', args: [id] },
       { sql: 'DELETE FROM files WHERE user_id = ?', args: [id] },
       { sql: 'DELETE FROM chats WHERE user_id = ?', args: [id] },
@@ -270,6 +334,7 @@ export const Users = {
       id: u.id, fullName: u.full_name, email: u.email, avatar: u.avatar,
       language: u.language, theme: u.theme, notifications: !!u.notifications,
       emailVerified: !!u.email_verified, createdAt: u.created_at,
+      role: u.role || 'user', tier: u.tier || 'free', status: u.status || 'active',
     };
   },
 };
@@ -466,4 +531,142 @@ export const Audit = {
     'SELECT type, detail, ip, created_at FROM audit WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
     [userId, limit]
   ),
+};
+
+/* ── Usage: AI so'rovlari hisobi ── */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const Usage = {
+  async record({ userId, chatId = null, kind = 'message', provider = null, model = null, tokensIn = 0, tokensOut = 0 }) {
+    await driver.run(
+      `INSERT INTO usage_events (id, user_id, chat_id, kind, provider, model, tokens_in, tokens_out, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [uid('use'), userId, chatId, kind, provider, model, Math.max(0, tokensIn | 0), Math.max(0, tokensOut | 0), now()]
+    );
+  },
+
+  /** So'nggi 24 soatdagi so'rovlar soni va eng eski so'rov vaqti (limit qachon bo'shashini hisoblash uchun). */
+  async window(userId) {
+    const since = now() - DAY_MS;
+    const r = await driver.get(
+      'SELECT COUNT(*) AS n, MIN(created_at) AS oldest FROM usage_events WHERE user_id = ? AND created_at >= ?',
+      [userId, since]
+    );
+    return { used: Number(r?.n ?? 0), oldest: r?.oldest ?? null };
+  },
+
+  /** Oxirgi N kun bo'yicha kunlik so'rov va tokenlar (UTC kunlari). */
+  async daily(userId, days = 14) {
+    const since = now() - days * DAY_MS;
+    const rows = await driver.all(
+      `SELECT (created_at / ${DAY_MS}) AS day, COUNT(*) AS requests, COALESCE(SUM(tokens_in + tokens_out), 0) AS tokens
+       FROM usage_events WHERE user_id = ? AND created_at >= ?
+       GROUP BY day ORDER BY day`,
+      [userId, since]
+    );
+    const byDay = new Map(rows.map((r) => [Number(r.day), r]));
+    const today = Math.floor(now() / DAY_MS);
+    return Array.from({ length: days }, (_, i) => {
+      const day = today - (days - 1 - i);
+      const r = byDay.get(day);
+      return { date: new Date(day * DAY_MS).toISOString().slice(0, 10), requests: Number(r?.requests ?? 0), tokens: Number(r?.tokens ?? 0) };
+    });
+  },
+};
+
+/* ── Admin: foydalanuvchilar va umumiy statistika ── */
+const ADMIN_SORTS = {
+  last_seen: 'COALESCE(u.last_seen_at, 0) DESC',
+  newest: 'u.created_at DESC',
+  requests: 'requests DESC',
+  tokens: 'tokens DESC',
+};
+
+/** Foydalanuvchi + foydalanish ko'rsatkichlari (birinchi "?" — 24 soatlik oyna boshi). */
+const ADMIN_USER_SELECT = `
+  SELECT u.id, u.full_name, u.email, u.avatar, u.role, u.tier, u.status, u.block_reason,
+         u.blocked_at, u.created_at, u.last_seen_at,
+         (SELECT COUNT(*) FROM chats c WHERE c.user_id = u.id) AS chats,
+         (SELECT COUNT(*) FROM files f WHERE f.user_id = u.id) AS files,
+         (SELECT COUNT(*) FROM usage_events e WHERE e.user_id = u.id) AS requests,
+         (SELECT COUNT(*) FROM usage_events e WHERE e.user_id = u.id AND e.created_at >= ?) AS requests_24h,
+         (SELECT COALESCE(SUM(e.tokens_in + e.tokens_out), 0) FROM usage_events e WHERE e.user_id = u.id) AS tokens
+  FROM users u`;
+
+export const Admin = {
+  /** Bitta foydalanuvchi — aniq ID bo'yicha. */
+  async getUser(id) {
+    const row = await driver.get(`${ADMIN_USER_SELECT} WHERE u.id = ?`, [now() - DAY_MS, id]);
+    return row ? Admin.publikRow(row) : null;
+  },
+
+  async listUsers({ search = '', status = '', tier = '', sort = 'last_seen', limit = 50, offset = 0 } = {}) {
+    const since = now() - DAY_MS;
+    const like = `%${String(search).toLowerCase()}%`;
+    const where = `(? = '' OR lower(u.full_name) LIKE ? OR u.email LIKE ?)
+                   AND (? = '' OR u.status = ?)
+                   AND (? = '' OR u.tier = ?)`;
+    const whereArgs = [search, like, like, status, status, tier, tier];
+
+    const rows = await driver.all(
+      `${ADMIN_USER_SELECT}
+       WHERE ${where}
+       ORDER BY ${ADMIN_SORTS[sort] || ADMIN_SORTS.last_seen}
+       LIMIT ? OFFSET ?`,
+      [since, ...whereArgs, Math.min(Math.max(limit | 0, 1), 200), Math.max(offset | 0, 0)]
+    );
+    const total = await driver.get(`SELECT COUNT(*) AS n FROM users u WHERE ${where}`, whereArgs);
+    return { users: rows.map(Admin.publikRow), total: Number(total?.n ?? 0) };
+  },
+
+  async stats() {
+    const since = now() - DAY_MS;
+    const onlineSince = now() - 5 * 60 * 1000;
+    const [users, usage, tiers] = await Promise.all([
+      driver.get(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) AS blocked,
+                SUM(CASE WHEN last_seen_at >= ? THEN 1 ELSE 0 END) AS online,
+                SUM(CASE WHEN last_seen_at >= ? THEN 1 ELSE 0 END) AS active_24h,
+                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS new_24h
+         FROM users`,
+        [onlineSince, since, since]
+      ),
+      driver.get(
+        `SELECT COUNT(*) AS requests_24h, COALESCE(SUM(tokens_in + tokens_out), 0) AS tokens_24h
+         FROM usage_events WHERE created_at >= ?`,
+        [since]
+      ),
+      driver.all('SELECT tier, COUNT(*) AS n FROM users GROUP BY tier'),
+    ]);
+    return {
+      users: Number(users?.total ?? 0),
+      blocked: Number(users?.blocked ?? 0),
+      online: Number(users?.online ?? 0),
+      active24h: Number(users?.active_24h ?? 0),
+      new24h: Number(users?.new_24h ?? 0),
+      requests24h: Number(usage?.requests_24h ?? 0),
+      tokens24h: Number(usage?.tokens_24h ?? 0),
+      tiers: Object.fromEntries(tiers.map((t) => [t.tier, Number(t.n)])),
+    };
+  },
+
+  publikRow: (u) => ({
+    id: u.id,
+    fullName: u.full_name,
+    email: u.email,
+    avatar: u.avatar,
+    role: u.role,
+    tier: u.tier,
+    status: u.status,
+    blockReason: u.block_reason,
+    blockedAt: u.blocked_at,
+    createdAt: u.created_at,
+    lastSeenAt: u.last_seen_at,
+    chats: Number(u.chats ?? 0),
+    files: Number(u.files ?? 0),
+    requests: Number(u.requests ?? 0),
+    requests24h: Number(u.requests_24h ?? 0),
+    tokens: Number(u.tokens ?? 0),
+  }),
 };

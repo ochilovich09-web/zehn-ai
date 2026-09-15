@@ -77,6 +77,8 @@ async function submit(form, action) {
   try {
     await action();
   } catch (err) {
+    // Bloklangan hisob xabarini (sababi bilan) main.js ko'rsatadi
+    if (err.code === 'ACCOUNT_BLOCKED') return;
     const message = err instanceof ApiError && err.code === 'NETWORK' ? t('error.network') : err.message || t('error.generic');
     toast(message, 'error');
     if (err.details?.checks) highlightWeak(form);

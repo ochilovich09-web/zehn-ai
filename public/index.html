@@ -10,10 +10,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/tokens.css?v=2">
-  <link rel="stylesheet" href="/css/base.css?v=2">
-  <link rel="stylesheet" href="/css/components.css?v=2">
-  <link rel="stylesheet" href="/css/app.css?v=2">
+  <link rel="stylesheet" href="/css/tokens.css?v=3">
+  <link rel="stylesheet" href="/css/base.css?v=3">
+  <link rel="stylesheet" href="/css/components.css?v=3">
+  <link rel="stylesheet" href="/css/app.css?v=3">
+  <link rel="stylesheet" href="/css/admin.css?v=3">
 </head>
 <body>
   <!-- ══ Yuklanish ekrani ══ -->
@@ -224,6 +225,9 @@
       <nav class="chat-list" id="chat-list" aria-label="Chats"></nav>
 
       <div class="sidebar__foot">
+        <button class="sidebar__admin" id="btn-admin" type="button" hidden>
+          <i data-icon="shield"></i><span data-i18n="admin.title"></span>
+        </button>
         <button class="sidebar__toggle-archive" id="btn-archived">
           <i data-icon="archive"></i><span data-i18n="app.archived"></span>
         </button>
@@ -231,7 +235,7 @@
           <span class="avatar" id="side-avatar">K</span>
           <span class="profile-chip__info">
             <b id="side-name">—</b>
-            <small id="side-plan" data-i18n="app.freePlan"></small>
+            <small id="side-plan"></small>
           </span>
           <i data-icon="settings"></i>
         </button>
@@ -240,8 +244,11 @@
 
     <div class="sidebar-scrim" id="sidebar-scrim"></div>
 
+    <!-- Admin panel (faqat adminlar uchun, main o'rniga ko'rsatiladi) -->
+    <section class="admin" id="admin-view" hidden aria-label="Admin"></section>
+
     <!-- Main -->
-    <main class="main">
+    <main class="main" id="app-main">
       <header class="topbar">
         <button class="icon-btn only-mobile" id="btn-menu"><i data-icon="menu"></i></button>
         <div class="topbar__brand">
@@ -331,6 +338,6 @@
   <div class="menu" id="context-menu" hidden></div>
   <div class="toasts" id="toasts"></div>
 
-  <script type="module" src="/js/main.js?v=2"></script>
+  <script type="module" src="/js/main.js?v=3"></script>
 </body>
 </html>

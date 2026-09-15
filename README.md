@@ -56,6 +56,8 @@ qolsa ham shu rejimga avtomatik o'tadi, foydalanuvchi javobsiz qolmaydi.
 | **Chat** | Rename, delete, archive, pin, qidiruv, kun bo'yicha guruhlash, markdown + kod bloklari |
 | **Akkaunt** | Ro'yxatdan o'tish, kirish, email tasdiqlash, parol tiklash, sessiya boshqaruvi |
 | **Mavzu** | Yorug' / qorong'i / tizim |
+| **Admin panel** | Barcha foydalanuvchilar, onlayn holati, 24 soatlik va umumiy foydalanish, 14 kunlik grafik, bloklash (sabab bilan, darhol), Free / Pro / Premium tarifini o'zgartirish |
+| **Tariflar** | So'nggi 24 soatdagi AI so'rovlari limiti; limit tugasa xabar saqlanmaydi va foydalanuvchiga tushunarli xabar chiqadi |
 
 ---
 

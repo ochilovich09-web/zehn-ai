@@ -1,13 +1,14 @@
 /* Zehn AI — ilova kirish nuqtasi */
 import { $, el, renderIcons } from './core/dom.js';
-import { api, getToken, setToken, onAuthLost } from './core/api.js';
+import { api, getToken, setToken, onAuthLost, onAccountBlocked } from './core/api.js';
 import { t, setLanguage, getLanguage, detectInitialLanguage, applyTranslations, onLanguageChange, LANGS } from './core/i18n.js';
 import { getState, set, applyTheme, getTheme, toggleTheme } from './core/store.js';
 import { initAuth, showAuth } from './ui/auth.js';
 import { initSidebar, loadChats } from './ui/sidebar.js';
 import { openChat, showWelcome, renderMessages } from './ui/chat.js';
 import { initComposer, fillInput, clearAttachments } from './ui/composer.js';
-import { openSettings, refreshSidebarProfile } from './ui/settings.js';
+import { openSettings, refreshSidebarProfile, refreshQuota } from './ui/settings.js';
+import { initAdmin, openAdmin, closeAdmin } from './ui/admin.js';
 import { toast } from './ui/toast.js';
 
 /* ── Ishga tushirish ── */
@@ -21,13 +22,24 @@ async function boot() {
   initAuth((user) => enterApp(user));
   initComposer();
   initSidebar({
-    onSelect: (chatId) => openChat(chatId),
-    onNewChat: () => { showWelcome(); clearAttachments(); $('#input').focus(); },
+    onSelect: (chatId) => { closeAdmin(); openChat(chatId); },
+    onNewChat: () => { closeAdmin(); showWelcome(); clearAttachments(); $('#input').focus(); },
   });
+  initAdmin({ onClose: () => closeAdmin() });
 
   onAuthLost(() => {
     toast(t('error.session'), 'warn');
     setToken(null);
+    closeAdmin();
+    showAuth();
+  });
+
+  // Admin hisobni bloklasa — foydalanuvchi sababni ko'rib, kirish ekraniga qaytadi
+  onAccountBlocked((err) => {
+    const reason = err.details?.reason;
+    toast(reason ? t('blocked.withReason', { reason }) : t('blocked.toast'), 'error', 10000);
+    closeAdmin();
+    set({ user: null });
     showAuth();
   });
 
@@ -69,9 +81,19 @@ async function enterApp(user) {
   $('#app-view').hidden = false;
 
   refreshSidebarProfile();
+  refreshQuota();
   buildSuggestions();
   showWelcome();
+
+  const isAdmin = user.role === 'admin';
+  $('#btn-admin').hidden = !isAdmin;
   await loadChats();
+
+  // #/admin havolasi bilan kirilgan bo'lsa — to'g'ridan-to'g'ri admin panel
+  if (isAdmin && location.hash === '#/admin') {
+    openAdmin();
+    return;
+  }
 
   // Oxirgi suhbatni ochamiz
   const [firstChat] = getState().chats;
@@ -125,6 +147,10 @@ function bindGlobalControls() {
   }
 
   $('#btn-profile')?.addEventListener('click', openSettings);
+  $('#btn-admin')?.addEventListener('click', () => {
+    $('#app-view').classList.remove('is-menu-open');
+    openAdmin();
+  });
   $('#btn-avatar')?.addEventListener('click', openSettings);
 
   $('#btn-chat-menu')?.addEventListener('click', async () => {
