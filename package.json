@@ -1,0 +1,18 @@
+{
+  "name": "zehn-ai-platform",
+  "version": "1.0.0",
+  "description": "Universal AI Assistant Platform - multi-domain reasoning, voice, file analysis, multi-language",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node tests/smoke.mjs",
+    "test:turso": "node tests/smoke.mjs --turso"
+  },
+  "dependencies": {},
+  "license": "MIT"
+}

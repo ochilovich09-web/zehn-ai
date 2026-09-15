@@ -66,7 +66,7 @@ server/
   index.js              HTTP server, statik fayllar, xavfsizlik sarlavhalari (CSP)
   config.js             .env o'quvchi, sozlamalar
   lib/
-    db.js               SQLite sxema + repozitoriylar (node:sqlite)
+    db.js               Turso (HTTP) yoki lokal SQLite — bitta async interfeys
     crypto.js           scrypt parol, HMAC JWT, tasodifiy tokenlar
     auth.js             access/refresh token, cookie, requireAuth
     router.js           yengil router (`/api/chats/:id`)
@@ -97,7 +97,8 @@ public/
 | Odatda kerak bo'ladi | Bu yerda |
 |---|---|
 | express | `node:http` + 60 qatorli router |
-| better-sqlite3 | `node:sqlite` (Node 22.5+ ichida) |
+| better-sqlite3 | `node:sqlite` (Node 24 ichida) |
+| @libsql/client | Turso HTTP pipeline API — `fetch` orqali |
 | bcrypt | `node:crypto` scrypt |
 | jsonwebtoken | HMAC-SHA256 bilan o'z JWT'imiz |
 | multer | o'z multipart parserimiz |
@@ -141,10 +142,20 @@ public/
 
 ---
 
-## Sinov fayllari
+## Testlar
 
-`tests/fixtures/` ichida PDF, DOCX, XLSX va CSV namunalari bor — fayl tahlilini
-sinab ko'rish uchun chatga biriktiring.
+```bash
+npm test             # lokal SQLite, vaqtinchalik papkada
+npm run test:turso   # .env dagi Turso bazasida
+```
+
+31 ta tekshiruv: ro'yxatdan o'tish, refresh token rotatsiyasi, SSE oqimi va pipeline,
+qidiruv, arxiv, fayl yuklash va xavfli faylni bloklash, bog'liq yozuvlarni o'chirish,
+eksport, akkauntni o'chirish. AI provayderi o'chiriladi — test API kalit sarflamaydi.
+
+`tests/fixtures/` ichida PDF, DOCX, XLSX va CSV namunalari bor.
+
+Deploy: [`DEPLOY.md`](DEPLOY.md)
 
 ---
 

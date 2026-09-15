@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Zehn AI — universal AI yordamchi platformasi">
+  <meta name="color-scheme" content="dark light">
+  <title>Zehn AI — Universal Assistant</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/css/tokens.css?v=2">
+  <link rel="stylesheet" href="/css/base.css?v=2">
+  <link rel="stylesheet" href="/css/components.css?v=2">
+  <link rel="stylesheet" href="/css/app.css?v=2">
+</head>
+<body>
+  <!-- ══ Yuklanish ekrani ══ -->
+  <div id="boot" class="boot">
+    <div class="boot__logo">
+      <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
+        <defs>
+          <linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#22d3ee"/>
+          </linearGradient>
+        </defs>
+        <path d="M24 4 41 14v20L24 44 7 34V14z" fill="none" stroke="url(#bg1)" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M24 15.5 32 20v9l-8 4.5-8-4.5v-9z" fill="url(#bg1)" opacity=".55"/>
+      </svg>
+    </div>
+    <div class="boot__bar"><span></span></div>
+  </div>
+
+  <!-- ══ AUTH ══ -->
+  <div id="auth-view" class="auth" hidden>
+    <div class="auth__aside">
+      <div class="auth__brand">
+        <span class="auth__brand-mark">
+          <svg viewBox="0 0 48 48" width="24" height="24" aria-hidden="true">
+            <path d="M24 4 41 14v20L24 44 7 34V14z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M24 15.5 32 20v9l-8 4.5-8-4.5v-9z" fill="currentColor" opacity=".6"/>
+          </svg>
+        </span>
+        <span class="auth__brand-text">
+          <b>Zehn AI</b>
+          <small data-i18n="auth.tagline"></small>
+        </span>
+      </div>
+
+      <span class="auth__pill"><i data-icon="sparkles"></i><span data-i18n="auth.badge"></span></span>
+
+      <h1 class="auth__headline" data-i18n="auth.headline"></h1>
+      <p class="auth__sub" data-i18n="auth.sub"></p>
+
+      <ul class="auth__features">
+        <li>
+          <i data-icon="code"></i>
+          <span><b data-i18n="feat.programming"></b><small data-i18n="feat.programmingSub"></small></span>
+        </li>
+        <li>
+          <i data-icon="sigma"></i>
+          <span><b data-i18n="feat.math"></b><small data-i18n="feat.mathSub"></small></span>
+        </li>
+        <li>
+          <i data-icon="briefcase"></i>
+          <span><b data-i18n="feat.business"></b><small data-i18n="feat.businessSub"></small></span>
+        </li>
+        <li>
+          <i data-icon="file-text"></i>
+          <span><b data-i18n="feat.files"></b><small data-i18n="feat.filesSub"></small></span>
+        </li>
+        <li>
+          <i data-icon="mic"></i>
+          <span><b data-i18n="feat.voice"></b><small data-i18n="feat.voiceSub"></small></span>
+        </li>
+      </ul>
+
+      <div class="auth__foot">
+        <span class="auth__badge"><i data-icon="shield"></i><span data-i18n="auth.secure"></span></span>
+        <span class="auth__note" data-i18n="auth.noteLocal"></span>
+      </div>
+    </div>
+
+    <div class="auth__panel">
+      <div class="auth__topbar">
+        <div class="lang-switch" id="auth-lang"></div>
+        <button class="icon-btn" id="auth-theme" type="button" title="Theme"><i data-icon="moon"></i></button>
+      </div>
+
+      <div class="auth__card">
+        <!-- Login -->
+        <form class="auth-form" id="form-login" novalidate>
+          <h2 data-i18n="auth.loginTitle"></h2>
+          <p class="auth-form__hint" data-i18n="auth.loginHint"></p>
+          <label class="field">
+            <span data-i18n="field.email"></span>
+            <span class="field__wrap">
+              <input type="email" name="email" autocomplete="email" required placeholder="ism@kompaniya.uz">
+              <span class="field__icon"><i data-icon="at"></i></span>
+            </span>
+          </label>
+          <label class="field">
+            <span data-i18n="field.password"></span>
+            <span class="field__wrap">
+              <input type="password" name="password" autocomplete="current-password" required placeholder="••••••••">
+              <button type="button" class="field__eye" data-toggle-password><i data-icon="eye"></i></button>
+            </span>
+          </label>
+          <div class="auth-form__row">
+            <label class="checkbox"><input type="checkbox" name="remember" checked><span data-i18n="auth.remember"></span></label>
+            <button type="button" class="link" data-goto="forgot" data-i18n="auth.forgot"></button>
+          </div>
+          <button class="btn btn--primary btn--block" type="submit">
+            <span data-i18n="auth.loginBtn"></span><i data-icon="arrow-right"></i>
+          </button>
+          <p class="auth-form__foot"><span data-i18n="auth.noAccount"></span>
+            <button type="button" class="link" data-goto="register" data-i18n="auth.registerLink"></button>
+          </p>
+        </form>
+
+        <!-- Register -->
+        <form class="auth-form" id="form-register" hidden novalidate>
+          <h2 data-i18n="auth.registerTitle"></h2>
+          <p class="auth-form__hint" data-i18n="auth.registerHint"></p>
+          <label class="field">
+            <span data-i18n="field.fullName"></span>
+            <input type="text" name="fullName" autocomplete="name" required minlength="2" placeholder="Kamola Karimova">
+          </label>
+          <label class="field">
+            <span data-i18n="field.email"></span>
+            <span class="field__wrap">
+              <input type="email" name="email" autocomplete="email" required placeholder="ism@kompaniya.uz">
+              <span class="field__icon"><i data-icon="at"></i></span>
+            </span>
+          </label>
+          <label class="field">
+            <span data-i18n="field.password"></span>
+            <span class="field__wrap">
+              <input type="password" name="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+              <button type="button" class="field__eye" data-toggle-password><i data-icon="eye"></i></button>
+            </span>
+            <span class="strength"><b></b><b></b><b></b><b></b></span>
+            <small class="field__note" data-strength-note></small>
+          </label>
+          <label class="field">
+            <span data-i18n="field.confirmPassword"></span>
+            <input type="password" name="confirmPassword" autocomplete="new-password" required placeholder="••••••••">
+          </label>
+          <button class="btn btn--primary btn--block" type="submit">
+            <span data-i18n="auth.registerBtn"></span><i data-icon="arrow-right"></i>
+          </button>
+          <p class="auth-form__foot"><span data-i18n="auth.haveAccount"></span>
+            <button type="button" class="link" data-goto="login" data-i18n="auth.loginLink"></button>
+          </p>
+        </form>
+
+        <!-- Forgot -->
+        <form class="auth-form" id="form-forgot" hidden novalidate>
+          <h2 data-i18n="auth.forgotTitle"></h2>
+          <p class="auth-form__hint" data-i18n="auth.forgotHint"></p>
+          <label class="field">
+            <span data-i18n="field.email"></span>
+            <input type="email" name="email" autocomplete="email" required placeholder="ism@kompaniya.uz">
+          </label>
+          <button class="btn btn--primary btn--block" type="submit" data-i18n="auth.forgotBtn"></button>
+          <p class="auth-form__foot">
+            <button type="button" class="link" data-goto="login" data-i18n="auth.backToLogin"></button>
+          </p>
+        </form>
+
+        <!-- Reset -->
+        <form class="auth-form" id="form-reset" hidden novalidate>
+          <h2 data-i18n="auth.resetTitle"></h2>
+          <p class="auth-form__hint" data-i18n="auth.resetHint"></p>
+          <label class="field">
+            <span data-i18n="field.newPassword"></span>
+            <span class="field__wrap">
+              <input type="password" name="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+              <button type="button" class="field__eye" data-toggle-password><i data-icon="eye"></i></button>
+            </span>
+          </label>
+          <button class="btn btn--primary btn--block" type="submit" data-i18n="auth.resetBtn"></button>
+          <p class="auth-form__foot">
+            <button type="button" class="link" data-goto="login" data-i18n="auth.backToLogin"></button>
+          </p>
+        </form>
+      </div>
+
+      <div class="auth__legal">
+        <span>© 2026 Zehn AI</span>
+        <span data-i18n="auth.legal"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ APP ══ -->
+  <div id="app-view" class="app" hidden>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__head">
+        <div class="brand">
+          <span class="brand__mark">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path d="M24 4 41 14v20L24 44 7 34V14z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+              <path d="M24 15.5 32 20v9l-8 4.5-8-4.5v-9z" fill="currentColor" opacity=".65"/>
+            </svg>
+          </span>
+          <span>Zehn AI</span>
+        </div>
+        <button class="icon-btn sidebar__collapse" id="btn-collapse" title="Menu"><i data-icon="panel"></i></button>
+      </div>
+
+      <button class="btn btn--new" id="btn-new-chat">
+        <i data-icon="plus"></i><span data-i18n="app.newChat"></span>
+      </button>
+
+      <div class="search">
+        <i data-icon="search"></i>
+        <input type="search" id="chat-search" placeholder="" data-i18n-placeholder="app.searchChats">
+        <button class="search__clear" id="search-clear" hidden><i data-icon="x"></i></button>
+      </div>
+
+      <nav class="chat-list" id="chat-list" aria-label="Chats"></nav>
+
+      <div class="sidebar__foot">
+        <button class="sidebar__toggle-archive" id="btn-archived">
+          <i data-icon="archive"></i><span data-i18n="app.archived"></span>
+        </button>
+        <button class="profile-chip" id="btn-profile">
+          <span class="avatar" id="side-avatar">K</span>
+          <span class="profile-chip__info">
+            <b id="side-name">—</b>
+            <small id="side-plan" data-i18n="app.freePlan"></small>
+          </span>
+          <i data-icon="settings"></i>
+        </button>
+      </div>
+    </aside>
+
+    <div class="sidebar-scrim" id="sidebar-scrim"></div>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn only-mobile" id="btn-menu"><i data-icon="menu"></i></button>
+        <div class="topbar__brand">
+          <span class="brand__mark" style="width:26px;height:26px;border-radius:8px">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path d="M24 4 41 14v20L24 44 7 34V14z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span>Zehn AI</span>
+          <span class="topbar__sep">/</span>
+        </div>
+        <div class="topbar__title">
+          <h1 id="chat-title" data-i18n="app.newChat"></h1>
+          <span class="chip" id="chat-domain" hidden></span>
+        </div>
+        <div class="topbar__actions">
+          <div class="lang-switch" id="app-lang"></div>
+          <button class="icon-btn" id="btn-theme" title="Theme"><i data-icon="moon"></i></button>
+          <button class="icon-btn" id="btn-chat-menu" title="More"><i data-icon="dots"></i></button>
+          <button class="topbar__avatar" id="btn-avatar" title="Profile">K</button>
+        </div>
+      </header>
+
+      <div class="thread" id="thread">
+        <!-- Bo'sh holat -->
+        <div class="welcome" id="welcome">
+          <div class="welcome__logo">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path d="M24 4 41 14v20L24 44 7 34V14z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+              <path d="M24 15.5 32 20v9l-8 4.5-8-4.5v-9z" fill="currentColor" opacity=".7"/>
+            </svg>
+          </div>
+          <h2 data-i18n="welcome.title"></h2>
+          <p data-i18n="welcome.sub"></p>
+          <div class="suggestions" id="suggestions"></div>
+        </div>
+
+        <div class="messages" id="messages"></div>
+      </div>
+
+      <!-- Composer -->
+      <div class="composer-wrap">
+        <div class="attachments" id="attachments" hidden></div>
+
+        <div class="recorder" id="recorder" hidden>
+          <span class="recorder__dot"></span>
+          <span class="recorder__time" id="rec-time">00:00</span>
+          <div class="recorder__wave" id="rec-wave"></div>
+          <span class="recorder__hint" id="rec-hint" data-i18n="voice.listening"></span>
+          <button class="btn btn--danger btn--sm" id="rec-stop"><i data-icon="stop"></i><span data-i18n="voice.stop"></span></button>
+        </div>
+
+        <form class="composer" id="composer">
+          <button type="button" class="composer__btn" id="btn-attach" title="" data-i18n-title="app.attach">
+            <i data-icon="paperclip"></i>
+          </button>
+          <input type="file" id="file-input" multiple hidden>
+          <textarea id="input" rows="1" placeholder="" data-i18n-placeholder="app.placeholder" maxlength="20000"></textarea>
+          <button type="button" class="composer__btn" id="btn-mic" title="" data-i18n-title="app.voice">
+            <i data-icon="mic"></i>
+          </button>
+          <button type="submit" class="composer__send" id="btn-send" disabled title="" data-i18n-title="app.send">
+            <i data-icon="arrow-up"></i>
+          </button>
+          <button type="button" class="composer__send composer__send--stop" id="btn-stop" hidden title="Stop">
+            <i data-icon="stop"></i>
+          </button>
+        </form>
+        <p class="composer__note" data-i18n="app.disclaimer"></p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ══ Modallar ══ -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__box" role="dialog" aria-modal="true">
+      <header class="modal__head">
+        <h3 id="modal-title"></h3>
+        <button class="icon-btn" data-close-modal><i data-icon="x"></i></button>
+      </header>
+      <div class="modal__body" id="modal-body"></div>
+      <footer class="modal__foot" id="modal-foot"></footer>
+    </div>
+  </div>
+
+  <div class="menu" id="context-menu" hidden></div>
+  <div class="toasts" id="toasts"></div>
+
+  <script type="module" src="/js/main.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# Maxfiy sozlamalar — API kalitlar, JWT secret
+.env
+.env.*
+!.env.example
+
+# Ma'lumotlar bazasi va foydalanuvchi fayllari
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Tizim va muharrir fayllari
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

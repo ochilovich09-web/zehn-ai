@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+data/
+node_modules/
+.git/
+tests/
+*.log
+stitch-prompt.md
