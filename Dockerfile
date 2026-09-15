@@ -16,8 +16,9 @@ COPY public ./public
 RUN mkdir -p /data/uploads && chown -R node:node /data /app
 USER node
 
+# Docker VOLUME yo'q: Railway uni qo'llab-quvvatlamaydi (Railway Volumes ishlatiladi).
+# Baza Turso'da; asl fayllarni saqlash kerak bo'lsa, /data ga hosting volume'ini ulang.
 EXPOSE 3000
-VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
